@@ -1,14 +1,14 @@
-# Generated Application
+# Generated Application (Round 2)
 
 ## Description
-Create an employee management system that displays employee data in a table with search and filter functionality.
+Add advanced features to the employee management system including department statistics, charts, and export functionality.
 
 ## Features
-- Display employee data in a responsive table
-- Add search by employee name
-- Add filter by department
-- Include sortable columns
-- Make it mobile-friendly
+- Add department statistics dashboard
+- Include bar chart for salary distribution
+- Add employee count by department
+- Implement data export to CSV
+- Add employee edit functionality
 
 ## Setup
 This application is automatically deployed to GitHub Pages and should be accessible immediately.
