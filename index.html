@@ -33,7 +33,7 @@
             flex-wrap: wrap;
         }
 
-        .controls input, .controls select {
+        .controls input, .controls select, .controls button {
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -79,7 +79,7 @@
                 flex-direction: column;
             }
 
-            .controls input, .controls select {
+            .controls input, .controls select, .controls button {
                 width: 100%;
             }
 
@@ -94,7 +94,56 @@
             color: red;
             margin-top: 10px;
         }
+
+        #departmentStats {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        #salaryChart {
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
@@ -110,6 +159,7 @@
                 <option value="HR">HR</option>
                 <option value="Finance">Finance</option>
             </select>
+            <button id="exportCSV">Export to CSV</button>
         </div>
 
         <table id="employeeTable">
@@ -118,107 +168,267 @@
                     <th data-sort="name">Name</th>
                     <th data-sort="department">Department</th>
                     <th data-sort="salary">Salary</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
+                <tr>
+                    <td>John Doe</td>
+                    <td>Sales</td>
+                    <td>60000</td>
+                    <td><button class="editButton" data-id="1">Edit</button></td>
+                </tr>
+                <tr>
+                    <td>Jane Smith</td>
+                    <td>Marketing</td>
+                    <td>70000</td>
+                    <td><button class="editButton" data-id="2">Edit</button></td>
+                </tr>
+                <tr>
+                    <td>Peter Jones</td>
+                    <td>Engineering</td>
+                    <td>80000</td>
+                    <td><button class="editButton" data-id="3">Edit</button></td>
+                </tr>
+                <tr>
+                    <td>Mary Brown</td>
+                    <td>HR</td>
+                    <td>65000</td>
+                    <td><button class="editButton" data-id="4">Edit</button></td>
+                </tr>
+                <tr>
+                    <td>David Wilson</td>
+                    <td>Finance</td>
+                    <td>75000</td>
+                    <td><button class="editButton" data-id="5">Edit</button></td>
+                </tr>
             </tbody>
         </table>
-        <div class="error-message" id="errorMessage"></div>
+
+        <div id="departmentStats">
+            <h2>Department Statistics</h2>
+            <p><strong>Sales:</strong> <span id="salesCount">0</span> employees</p>
+            <p><strong>Marketing:</strong> <span id="marketingCount">0</span> employees</p>
+            <p><strong>Engineering:</strong> <span id="engineeringCount">0</span> employees</p>
+            <p><strong>HR:</strong> <span id="hrCount">0</span> employees</p>
+            <p><strong>Finance:</strong> <span id="financeCount">0</span> employees</p>
+        </div>
+
+        <canvas id="salaryChart"></canvas>
+
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Edit Employee</h2>
+                <label for="editName">Name:</label>
+                <input type="text" id="editName"><br><br>
+                <label for="editDepartment">Department:</label>
+                <select id="editDepartment">
+                    <option value="Sales">Sales</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="HR">HR</option>
+                    <option value="Finance">Finance</option>
+                </select><br><br>
+                <label for="editSalary">Salary:</label>
+                <input type="number" id="editSalary"><br><br>
+                <button id="saveChanges">Save Changes</button>
+            </div>
+        </div>
+
     </div>
 
     <script>
-        const employees = [
-            { name: "John Doe", department: "Sales", salary: 60000 },
-            { name: "Jane Smith", department: "Marketing", salary: 70000 },
-            { name: "Peter Jones", department: "Engineering", salary: 80000 },
-            { name: "Mary Brown", department: "HR", salary: 65000 },
-            { name: "David Lee", department: "Finance", salary: 75000 },
-            { name: "Sarah Miller", department: "Sales", salary: 62000 },
-            { name: "Michael Davis", department: "Marketing", salary: 72000 },
-            { name: "Linda Wilson", department: "Engineering", salary: 82000 },
-            { name: "Christopher Garcia", department: "HR", salary: 67000 },
-            { name: "Angela Rodriguez", department: "Finance", salary: 77000 }
-        ];
+        document.addEventListener('DOMContentLoaded', function () {
+            // Department Statistics
+            function updateDepartmentStats() {
+                const employees = Array.from(document.querySelectorAll('#employeeTable tbody tr'));
+                const salesCount = employees.filter(emp => emp.children[1].textContent === 'Sales').length;
+                const marketingCount = employees.filter(emp => emp.children[1].textContent === 'Marketing').length;
+                const engineeringCount = employees.filter(emp => emp.children[1].textContent === 'Engineering').length;
+                const hrCount = employees.filter(emp => emp.children[1].textContent === 'HR').length;
+                const financeCount = employees.filter(emp => emp.children[1].textContent === 'Finance').length;
 
-        const employeeTable = document.getElementById("employeeTable").getElementsByTagName('tbody')[0];
-        const searchNameInput = document.getElementById("searchName");
-        const filterDepartmentSelect = document.getElementById("filterDepartment");
-        const errorMessageDiv = document.getElementById("errorMessage");
-
-        let currentEmployees = [...employees]; // Create a copy for filtering and sorting
-        let currentSortColumn = null;
-        let currentSortDirection = 'asc';
-
-        function displayEmployees(employeesToDisplay) {
-            employeeTable.innerHTML = "";
-            if (!employeesToDisplay || employeesToDisplay.length === 0) {
-                errorMessageDiv.textContent = "No employees found matching your criteria.";
-                return;
-            }
-            errorMessageDiv.textContent = "";
-
-            employeesToDisplay.forEach(employee => {
-                let row = employeeTable.insertRow();
-                let nameCell = row.insertCell();
-                let departmentCell = row.insertCell();
-                let salaryCell = row.insertCell();
-
-                nameCell.textContent = employee.name;
-                departmentCell.textContent = employee.department;
-                salaryCell.textContent = employee.salary;
-            });
-        }
-
-        function filterEmployees() {
-            const searchTerm = searchNameInput.value.toLowerCase();
-            const selectedDepartment = filterDepartmentSelect.value;
-
-            currentEmployees = employees.filter(employee => {
-                const nameMatch = employee.name.toLowerCase().includes(searchTerm);
-                const departmentMatch = selectedDepartment === "" || employee.department === selectedDepartment;
-                return nameMatch && departmentMatch;
-            });
-
-            displayEmployees(currentEmployees);
-        }
-
-        function sortTable(column) {
-            if (column === currentSortColumn) {
-                currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-            } else {
-                currentSortColumn = column;
-                currentSortDirection = 'asc';
+                document.getElementById('salesCount').textContent = salesCount;
+                document.getElementById('marketingCount').textContent = marketingCount;
+                document.getElementById('engineeringCount').textContent = engineeringCount;
+                document.getElementById('hrCount').textContent = hrCount;
+                document.getElementById('financeCount').textContent = financeCount;
             }
 
-            currentEmployees.sort((a, b) => {
-                let comparison = 0;
-                if (column === 'name') {
-                    comparison = a.name.localeCompare(b.name);
-                } else if (column === 'department') {
-                    comparison = a.department.localeCompare(b.department);
-                } else if (column === 'salary') {
-                    comparison = a.salary - b.salary;
+            updateDepartmentStats();
+
+            // Salary Chart
+            const salaries = Array.from(document.querySelectorAll('#employeeTable tbody tr')).map(emp => parseInt(emp.children[2].textContent));
+            const departmentLabels = Array.from(document.querySelectorAll('#employeeTable tbody tr')).map(emp => emp.children[1].textContent);
+
+            const salaryData = {};
+            departmentLabels.forEach((dept, index) => {
+                if (!salaryData[dept]) {
+                    salaryData[dept] = 0;
+                }
+                salaryData[dept] += salaries[index];
+            });
+
+            const chartLabels = Object.keys(salaryData);
+            const chartValues = Object.values(salaryData);
+
+            const ctx = document.getElementById('salaryChart').getContext('2d');
+            const salaryChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Total Salary by Department',
+                        data: chartValues,
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(54, 162, 235, 0.2)',
+                            'rgba(255, 206, 86, 0.2)',
+                            'rgba(75, 192, 192, 0.2)',
+                            'rgba(153, 102, 255, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // CSV Export
+            document.getElementById('exportCSV').addEventListener('click', function () {
+                const table = document.getElementById('employeeTable');
+                let csv = [];
+                let rows = table.querySelectorAll('tr');
+
+                for (let i = 0; i < rows.length; i++) {
+                    let row = [], cols = rows[i].querySelectorAll('td, th');
+
+                    for (let j = 0; j < cols.length; j++) {
+                        row.push(cols[j].innerText);
+                    }
+
+                    csv.push(row.join(','));
                 }
 
-                return currentSortDirection === 'asc' ? comparison : -comparison;
+                // Download CSV file
+                downloadCSV(csv.join('\n'), 'employees.csv');
             });
 
-            displayEmployees(currentEmployees);
-        }
+            function downloadCSV(csv, filename) {
+                let csvFile;
+                let downloadLink;
 
-        // Event listeners
-        searchNameInput.addEventListener("input", filterEmployees);
-        filterDepartmentSelect.addEventListener("change", filterEmployees);
+                csvFile = new Blob([csv], { type: "text/csv" });
+                downloadLink = document.createElement("a");
+                downloadLink.download = filename;
+                downloadLink.href = window.URL.createObjectURL(csvFile);
+                downloadLink.style.display = "none";
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+            }
 
-        const tableHeaders = document.querySelectorAll("#employeeTable th");
-        tableHeaders.forEach(header => {
-            header.addEventListener("click", () => {
-                sortTable(header.dataset.sort);
+            // Edit Functionality
+            const editModal = document.getElementById('editModal');
+            const editNameInput = document.getElementById('editName');
+            const editDepartmentSelect = document.getElementById('editDepartment');
+            const editSalaryInput = document.getElementById('editSalary');
+            const saveChangesButton = document.getElementById('saveChanges');
+            const closeModal = document.querySelector('.close');
+            let currentEmployeeId = null;
+
+            document.querySelectorAll('.editButton').forEach(button => {
+                button.addEventListener('click', function () {
+                    currentEmployeeId = this.dataset.id;
+                    // Fetch employee data based on ID (replace with actual data fetching)
+                    const employeeRow = Array.from(document.querySelectorAll('#employeeTable tbody tr'))[currentEmployeeId - 1];
+                    editNameInput.value = employeeRow.children[0].textContent;
+                    editDepartmentSelect.value = employeeRow.children[1].textContent;
+                    editSalaryInput.value = employeeRow.children[2].textContent;
+
+                    editModal.style.display = "block";
+                });
             });
+
+            closeModal.addEventListener('click', function () {
+                editModal.style.display = "none";
+            });
+
+            window.addEventListener('click', function (event) {
+                if (event.target == editModal) {
+                    editModal.style.display = "none";
+                }
+            });
+
+            saveChangesButton.addEventListener('click', function () {
+                // Update employee data (replace with actual data saving)
+                const employeeRow = Array.from(document.querySelectorAll('#employeeTable tbody tr'))[currentEmployeeId - 1];
+                employeeRow.children[0].textContent = editNameInput.value;
+                employeeRow.children[1].textContent = editDepartmentSelect.value;
+                employeeRow.children[2].textContent = editSalaryInput.value;
+
+                updateDepartmentStats();
+                updateChartData();
+                editModal.style.display = "none";
+            });
+
+            function updateChartData() {
+                const salaries = Array.from(document.querySelectorAll('#employeeTable tbody tr')).map(emp => parseInt(emp.children[2].textContent));
+                const departmentLabels = Array.from(document.querySelectorAll('#employeeTable tbody tr')).map(emp => emp.children[1].textContent);
+
+                const salaryData = {};
+                departmentLabels.forEach((dept, index) => {
+                    if (!salaryData[dept]) {
+                        salaryData[dept] = 0;
+                    }
+                    salaryData[dept] += salaries[index];
+                });
+
+                const chartLabels = Object.keys(salaryData);
+                const chartValues = Object.values(salaryData);
+
+                salaryChart.data.labels = chartLabels;
+                salaryChart.data.datasets[0].data = chartValues;
+                salaryChart.update();
+            }
+
+
+            // Search and Filter (Basic Implementation)
+            document.getElementById('searchName').addEventListener('input', filterTable);
+            document.getElementById('filterDepartment').addEventListener('change', filterTable);
+
+            function filterTable() {
+                const searchText = document.getElementById('searchName').value.toLowerCase();
+                const filterDepartment = document.getElementById('filterDepartment').value;
+                const rows = document.querySelectorAll('#employeeTable tbody tr');
+
+                rows.forEach(row => {
+                    const name = row.children[0].textContent.toLowerCase();
+                    const department = row.children[1].textContent;
+
+                    const nameMatch = name.includes(searchText);
+                    const departmentMatch = filterDepartment === "" || department === filterDepartment;
+
+                    if (nameMatch && departmentMatch) {
+                        row.style.display = "";
+                    } else {
+                        row.style.display = "none";
+                    }
+                });
+            }
         });
-
-        // Initial display
-        displayEmployees(currentEmployees);
     </script>
 </body>
 </html>
